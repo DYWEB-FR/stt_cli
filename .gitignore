@@ -1,3 +1,9 @@
+# Ignore downloaded ggml model binaries
+ggml-*.bin
+ggml-*.bin.sig
+
+# Ignore local artifacts
+/dist/
 /target
 **/*.m4a
 **/*.tar.gz
