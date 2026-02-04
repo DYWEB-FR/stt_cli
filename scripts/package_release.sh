@@ -25,6 +25,7 @@ cp "$BIN" "$TMP/" || true
 cp README.md "$TMP/" || true
 cp docs/USAGE.md "$TMP/" || true
 cp Cargo.toml "$TMP/" || true
+cp LICENSE "$TMP/" || true
 
 chmod +x "$TMP/stt_cli" || true
 
