@@ -46,6 +46,10 @@ struct Args {
     /// Prompt initial pour guider le modèle
     #[arg(long)]
     initial_prompt: Option<String>,
+
+    /// Fichier de sortie pour la transcription (texte)
+    #[arg(long)]
+    output: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -101,13 +105,23 @@ fn main() -> Result<()> {
     state.full(params, &samples_16k).context("whisper full")?;
 
     let n = state.full_n_segments() as usize;
+    let mut lines: Vec<String> = Vec::new();
     for i in 0..n {
         if let Some(seg) = state.get_segment(i as i32) {
             let text = seg.to_string();
             // Filtre les segments vides ou avec uniquement des espaces
             if !text.trim().is_empty() {
-                println!("{}", text.trim());
+                lines.push(text.trim().to_string());
             }
+        }
+    }
+
+    if let Some(ref out_path) = args.output {
+        let content = lines.join("\n");
+        std::fs::write(out_path, content).with_context(|| format!("write {:?}", out_path))?;
+    } else {
+        for l in lines {
+            println!("{}", l);
         }
     }
 
