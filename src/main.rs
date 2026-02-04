@@ -34,6 +34,18 @@ struct Args {
     /// Threads whisper (0 => défaut)
     #[arg(long, default_value_t = 0)]
     threads: i32,
+
+    /// Beam size pour la recherche (1-10, défaut: 5)
+    #[arg(long, default_value_t = 5)]
+    beam_size: i32,
+
+    /// Temperature pour l'échantillonnage (0.0-1.0, défaut: 0.0)
+    #[arg(long, default_value_t = 0.0)]
+    temperature: f32,
+
+    /// Prompt initial pour guider le modèle
+    #[arg(long)]
+    initial_prompt: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -46,14 +58,18 @@ fn main() -> Result<()> {
     let samples_16k = resample_to_16k_mono(&mono, sr_in).context("resample to 16k")?;
 
     // 3) Whisper context (API v0.15.x)
-    let mut ctx_params = WhisperContextParameters::default();
+    let ctx_params = WhisperContextParameters::default();
     // ctx_params.use_gpu = false; // optionnel selon plateforme
 
     let model_path = args.model.to_string_lossy().to_string();
     let ctx = WhisperContext::new_with_params(&model_path, ctx_params).context("load model")?;
     let mut state = ctx.create_state().context("create_state")?;
 
-    let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
+    // Utilise BeamSearch pour une meilleure qualité
+    let mut params = FullParams::new(SamplingStrategy::BeamSearch {
+        beam_size: args.beam_size,
+        patience: -1.0,
+    });
 
     if args.threads > 0 {
         params.set_n_threads(args.threads);
@@ -65,17 +81,33 @@ fn main() -> Result<()> {
         params.set_language(Some(args.lang.trim()));
     }
 
+    // Paramètres pour améliorer la qualité
     params.set_translate(false);
     params.set_print_progress(false);
     params.set_print_realtime(false);
     params.set_print_special(false);
+    params.set_no_context(false); // Utilise le contexte entre segments
+    params.set_single_segment(false);
+    params.set_temperature(args.temperature);
+    params.set_max_len(0); // Pas de limite de longueur
+    params.set_suppress_blank(true); // Supprime les segments vides
+    params.set_suppress_nst(true); // Supprime les tokens non-speech
+    
+    // Prompt initial pour guider le modèle (améliore la précision)
+    if let Some(ref prompt) = args.initial_prompt {
+        params.set_initial_prompt(prompt);
+    }
 
     state.full(params, &samples_16k).context("whisper full")?;
 
     let n = state.full_n_segments() as usize;
     for i in 0..n {
         if let Some(seg) = state.get_segment(i as i32) {
-            println!("{}", seg);
+            let text = seg.to_string();
+            // Filtre les segments vides ou avec uniquement des espaces
+            if !text.trim().is_empty() {
+                println!("{}", text.trim());
+            }
         }
     }
 
@@ -175,9 +207,9 @@ fn resample_to_16k_mono(input: &[f32], sr_in: u32) -> Result<Vec<f32>> {
 
     let sr_out = 16_000u32;
 
-    // Paramètres FFT : compromis simple pour de la voix
+    // Paramètres FFT : optimisés pour la qualité vocale
     let chunk_size = 2048usize;     // taille d'entrée par bloc
-    let sub_chunks = 2usize;        // latence/qualité
+    let sub_chunks = 4usize;        // latence/qualité (augmenté pour meilleure qualité)
     let channels = 1usize;
 
     let mut resampler = FftFixedIn::<f32>::new(
