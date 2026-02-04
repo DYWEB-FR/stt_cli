@@ -34,6 +34,7 @@ Comportement
 - Si un tag `vMAJ.MIN.PATCH` existe, le script incrémente `PATCH`.
 - Le tag est créé localement avec un message annoté `Release <tag>`.
 - `--push` pousse le tag vers le remote `origin`. Le script échoue si `origin` n'existe pas.
+ - Le script met à jour le fichier `VERSION` à la nouvelle version (sans le préfixe `v`) et crée un commit local `Bump version to <version>`; avec `--push` il tente aussi de pousser la branche courante, puis le tag, vers `origin`.
 
 Erreurs courantes
 -----------------

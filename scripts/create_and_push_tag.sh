@@ -47,9 +47,24 @@ fi
 echo "Creating tag: $TAG"
 git tag -a "$TAG" -m "Release $TAG"
 
+# Persist version in VERSION (without leading 'v') and commit the change if any
+NEW_VERSION="${TAG#v}"
+echo "$NEW_VERSION" > VERSION
+git add VERSION
+# Commit may fail if there are no changes; allow that without exiting
+git commit -m "Bump version to ${NEW_VERSION}" || true
+
 if [ "$PUSH" = true ]; then
   if git remote | grep -q '^origin$'; then
     echo "Pushing tag $TAG to origin..."
+    # Push branch (if not detached) and tag so VERSION change is pushed as well
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$BRANCH" != "HEAD" ]; then
+      echo "Pushing branch $BRANCH to origin..."
+      git push origin "$BRANCH"
+    else
+      echo "Detached HEAD; skipping branch push."
+    fi
     git push origin "$TAG"
     echo "Tag pushed."
   else
