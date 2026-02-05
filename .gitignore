@@ -9,4 +9,4 @@ ggml-*.bin.sig
 **/*.tar.gz
 
 models/
-audio/
+audio/dist/
