@@ -7,3 +7,6 @@ ggml-*.bin.sig
 /target
 **/*.m4a
 **/*.tar.gz
+
+models/
+audio/
